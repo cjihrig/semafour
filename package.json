@@ -1,0 +1,35 @@
+{
+  "name": "semafour",
+  "version": "0.1.0",
+  "description": "Node.js semaphore",
+  "author": "Continuation Labs <contact@continuation.io> (http://continuation.io/)",
+  "main": "lib/index.js",
+  "gypfile": true,
+  "homepage": "https://github.com/continuationlabs/semafour",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/continuationlabs/semafour.git"
+  },
+  "bugs": {
+    "url": "https://github.com/continuationlabs/semafour/issues"
+  },
+  "license": "MIT",
+  "scripts": {
+    "test": "belly-button -f && lab -v -t 100 -a code",
+    "install": "node-gyp rebuild",
+    "rebuild": "node-gyp rebuild"
+  },
+  "engines": {
+    "node": ">=4.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "belly-button": "3.1.0",
+    "code": "4.0.0",
+    "lab": "12.1.0"
+  },
+  "keywords": [
+    "semaphore",
+    "synchronization"
+  ]
+}
