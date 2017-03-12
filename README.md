@@ -6,63 +6,129 @@
 
 [![belly-button-style](https://cdn.rawgit.com/continuationlabs/belly-button/master/badge.svg)](https://github.com/continuationlabs/belly-button)
 
-Node.js semaphore with synchronous and asynchronous APIs.
+Node.js semaphore with synchronous and asynchronous APIs. `semafour` uses named semaphores, and can be used to achieve synchronization across multiple processes.
+
+**Currently not supported on Windows.**
 
 ## Example
 
 ```javascript
-const sem = new Semafour();
+const sem = Semafour.create({ name: '/sem', value: 1 });
 
-// Acquire semaphore
-sem.wait(() => {
+// Acquire semaphore asynchronously.
+sem.wait((err) => {
   // Perform some activity that requires synchronization.
 
-  // Release semaphore
+  // Release semaphore synchronously.
   sem.postSync();
+
+  // Delete the semaphore synchronously.
+  sem.unlinkSync();
 });
 ```
 
 ## API
 
-### `Semafour([value])` constructor
+### `Semafour(options)` constructor
 
   - Arguments
-    - `value` (number) - An unsigned integer representing the initial value of the semaphore. Optional. Defaults to `0`.
+    - `options` (object) - A configuration object with the following schema:
+      - `name` (string) - Name for the semaphore. This is global to the operating system.
+      - `value` (number) - An unsigned integer representing the initial value of the semaphore. Optional. Defaults to `0`.
+      - `create` (boolean) - When `false`, a new semaphore is created if one does not already exist with the provided `name`. If a semaphore already exists with the same name, it will be used. When `create` is `true`, an error is thrown if the named semaphore already exists. Defaults to `true`.
 
 Constructs a new semaphore. Must be called with `new`.
 
-### `post(callback)`
+### `Semafour.create(options)`
 
   - Arguments
-    - `callback` (function) - Callback function, which takes no arguments.
+    - `options` (object) - A configuration object with the following schema:
+      - `name` (string) - Name for the semaphore. This is global to the operating system.
+      - `value` (number) - An unsigned integer representing the initial value of the semaphore. Optional. Defaults to `0`.
+  - Returns
+    - `semaphore` (object) - A semaphore object representing a newly created named semaphore.
+
+Factory function used to construct semaphores with `create` equal to `true`. This is the preferred way to create new semaphores.
+
+### `Semafour.use(options)`
+
+  - Arguments
+    - `options` (object) - A configuration object with the following schema:
+      - `name` (string) - Name for the semaphore. This is global to the operating system.
+      - `value` (number) - An unsigned integer representing the initial value of the semaphore. If the semaphore already exists, `value` is ignored. Optional. Defaults to `0`.
+  - Returns
+    - `semaphore` (object) - A semaphore object representing a newly created or existing named semaphore.
+
+Factory function used to construct semaphores with `create` equal to `false`. This is the preferred way to retrieve existing semaphores.
+
+### `Semafour.prototype.post(callback)`
+
+  - Arguments
+    - `callback(err)` (function) - Callback function, which takes an error argument.
   - Returns
     - Nothing
 
-Posts the semaphore, and invokes `callback` on the next tick.
+Posts the semaphore, and invokes `callback`. Any errors that occur are passed to the callback function.
 
-### `postSync()`
+### `Semafour.prototype.postSync()`
 
   - Arguments
     - None
   - Returns
     - Nothing
 
-Posts the semaphore synchronously.
+Posts the semaphore synchronously. Throws if an error occurs.
 
-### `wait(callback)`
+### `Semafour.prototype.wait(callback)`
 
   - Arguments
-    - `callback` (function) - Callback function, which takes no arguments.
+    - `callback(err)` (function) - Callback function, which takes an error argument.
   - Returns
     - Nothing
 
-Acquires the semaphore asynchronously. The wait operation is performed on a separate thread in the libuv thread pool to avoid blocking the event loop. Once the semaphore is acquired, the callback is invoked.
+Acquires the semaphore asynchronously. The wait operation is performed on a separate thread in the libuv thread pool to avoid blocking the event loop. Once the semaphore is acquired, the callback is invoked. Any errors that occur are passed to the callback function.
 
-### `waitSync()`
+### `Semafour.prototype.waitSync()`
 
   - Arguments
     - None
   - Returns
     - Nothing
 
-Acquires the semaphore synchronously. The wait operation is performed on the main thread, and will block the event loop until the semaphore is acquired.
+Acquires the semaphore synchronously. The wait operation is performed on the main thread, and will block the event loop until the semaphore is acquired. Throws if an error occurs.
+
+### `Semafour.prototype.unlink(callback)`
+
+  - Arguments
+    - `callback(err)` (function) - Callback function, which takes an error argument.
+  - Returns
+    - Nothing
+
+Unlinks the semaphore, and invokes `callback`. Any errors that occur are passed to the callback function. The semaphore is not destroyed until it is closed by all other processes that have it open.
+
+### `Semafour.prototype.unlinkSync()`
+
+  - Arguments
+    - None
+  - Returns
+    - Nothing
+
+Unlinks the semaphore synchronously. Throws if an error occurs. The semaphore is not destroyed until it is closed by all other processes that have it open.
+
+### `Semafour.prototype.close(callback)`
+
+  - Arguments
+    - `callback(err)` (function) - Callback function, which takes an error argument.
+  - Returns
+    - Nothing
+
+Closes the semaphore, and invokes `callback`. Any errors that occur are passed to the callback function.
+
+### `Semafour.prototype.closeSync()`
+
+  - Arguments
+    - None
+  - Returns
+    - Nothing
+
+Closes the semaphore synchronously. Throws if an error occurs.
