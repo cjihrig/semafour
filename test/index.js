@@ -14,7 +14,6 @@ function getName () {
   return `sem_${Crypto.randomBytes(10).toString('hex')}`;
 }
 
-// TODO: Add test(s) with multiple processes.
 
 describe('Semafour', () => {
   it('obtains the semaphore synchronously', (done) => {
@@ -69,15 +68,14 @@ describe('Semafour', () => {
   it('post() and postSync() fail if semaphore is invalid', (done) => {
     const sem = Semafour.create({ name: getName(), value: 1 });
 
-    sem.closeSync();
+    sem.unlinkSync();
 
     expect(() => {
       sem.postSync();
-    }).to.throw(Error, 'EBADF: bad file descriptor, sem_post');
+    }).to.throw(Error, 'EINVAL: invalid argument, sem_post');
 
     sem.post((err) => {
-      expect(err).to.be.an.error(Error, 'EBADF: bad file descriptor, sem_post');
-      sem.unlinkSync();
+      expect(err).to.be.an.error(Error, 'EINVAL: invalid argument, sem_post');
       done();
     });
   });
@@ -85,15 +83,14 @@ describe('Semafour', () => {
   it('wait() and waitSync() fail if semaphore is invalid', (done) => {
     const sem = Semafour.create({ name: getName(), value: 1 });
 
-    sem.closeSync();
+    sem.unlinkSync();
 
     expect(() => {
       sem.waitSync();
-    }).to.throw(Error, 'EBADF: bad file descriptor, sem_wait');
+    }).to.throw(Error, 'EINVAL: invalid argument, sem_wait');
 
     sem.wait((err) => {
-      expect(err).to.be.an.error(Error, 'EBADF: bad file descriptor, sem_wait');
-      sem.unlinkSync();
+      expect(err).to.be.an.error(Error, 'EINVAL: invalid argument, sem_wait');
       done();
     });
   });
@@ -105,12 +102,11 @@ describe('Semafour', () => {
 
     expect(() => {
       sem.closeSync();
-    }).to.throw(Error, 'EBADF: bad file descriptor, sem_close');
+    }).to.throw(Error, 'EINVAL: invalid argument, sem_close');
 
     sem.close((err) => {
-      expect(err).to.be.an.error(Error, 'EBADF: bad file descriptor, sem_close');
-      sem.unlinkSync();
-      done();
+      expect(err).to.be.an.error(Error, 'EINVAL: invalid argument, sem_close');
+      sem.unlink(done);
     });
   });
 
