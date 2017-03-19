@@ -4,6 +4,7 @@ const Crypto = require('crypto');
 const Path = require('path');
 const Code = require('code');
 const Lab = require('lab');
+const StandIn = require('stand-in');
 const Semafour = require('../');
 const SemafourWrap = require('../build/Release/semafour').Semafour;
 
@@ -14,6 +15,10 @@ const it = lab.it;
 
 function getName () {
   return `sem_${Crypto.randomBytes(10).toString('hex')}`;
+}
+
+function syncMock () {
+  return new Error('mock-error');
 }
 
 
@@ -67,48 +72,58 @@ describe('Semafour', () => {
     done();
   });
 
-  it('post() and postSync() fail if semaphore is invalid', (done) => {
+  it('post() and postSync() handle errors from the binding layer', (done) => {
     const sem = Semafour.create({ name: getName(), value: 1 });
 
     sem.unlinkSync();
 
     expect(() => {
+      StandIn.replaceOnce(SemafourWrap.prototype, 'post', syncMock);
       sem.postSync();
-    }).to.throw(Error, 'EINVAL: invalid argument, sem_post');
+    }).to.throw(Error, 'mock-error');
 
+    StandIn.replaceOnce(SemafourWrap.prototype, 'post', syncMock);
     sem.post((err) => {
-      expect(err).to.be.an.error(Error, 'EINVAL: invalid argument, sem_post');
+      expect(err).to.be.an.error(Error, 'mock-error');
       done();
     });
   });
 
-  it('wait() and waitSync() fail if semaphore is invalid', (done) => {
+  it('wait() and waitSync() handle errors from the binding layer', (done) => {
     const sem = Semafour.create({ name: getName(), value: 1 });
 
     sem.unlinkSync();
 
     expect(() => {
+      StandIn.replaceOnce(SemafourWrap.prototype, 'wait', () => {
+        throw new Error('mock-error');
+      });
       sem.waitSync();
-    }).to.throw(Error, 'EINVAL: invalid argument, sem_wait');
+    }).to.throw(Error, 'mock-error');
 
+    StandIn.replaceOnce(SemafourWrap.prototype, 'wait', (stand, cb) => {
+      cb(new Error('mock-error'));
+    });
     sem.wait((err) => {
-      expect(err).to.be.an.error(Error, 'EINVAL: invalid argument, sem_wait');
+      expect(err).to.be.an.error(Error, 'mock-error');
       done();
     });
   });
 
-  it('close() and closeSync() fail if semaphore is invalid', (done) => {
+  it('close() and closeSync() handle errors from the binding layer', (done) => {
     const sem = Semafour.create({ name: getName(), value: 1 });
 
-    sem.closeSync();
+    sem.unlinkSync();
 
     expect(() => {
+      StandIn.replaceOnce(SemafourWrap.prototype, 'close', syncMock);
       sem.closeSync();
-    }).to.throw(Error, 'EINVAL: invalid argument, sem_close');
+    }).to.throw(Error, 'mock-error');
 
+    StandIn.replaceOnce(SemafourWrap.prototype, 'close', syncMock);
     sem.close((err) => {
-      expect(err).to.be.an.error(Error, 'EINVAL: invalid argument, sem_close');
-      sem.unlink(done);
+      expect(err).to.be.an.error(Error, 'mock-error');
+      done();
     });
   });
 
@@ -125,6 +140,14 @@ describe('Semafour', () => {
       expect(err).to.be.an.error(Error, 'EINVAL: invalid argument, sem_unlink');
       done();
     });
+  });
+
+  it('semaphore can be unlinked after closing', (done) => {
+    const sem = Semafour.create({ name: getName() });
+
+    sem.closeSync();
+    sem.unlinkSync();
+    done();
   });
 
   it('constructor throws on invalid input', (done) => {

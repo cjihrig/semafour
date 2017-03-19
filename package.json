@@ -26,7 +26,8 @@
   "devDependencies": {
     "belly-button": "3.1.0",
     "code": "4.0.0",
-    "lab": "13.0.1"
+    "lab": "13.0.1",
+    "stand-in": "4.1.0"
   },
   "keywords": [
     "semaphore",

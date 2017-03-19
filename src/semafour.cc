@@ -68,10 +68,6 @@ Semafour::~Semafour() {
 
 
 int Semafour::Post() {
-  if (_sem == NULL) {
-    return UV_EINVAL;
-  }
-
   if (sem_post(_sem) != 0) {
     return -errno;
   }
@@ -84,10 +80,6 @@ int Semafour::Wait() {
   int r;
 
   do {
-    if (_sem == NULL) {
-      return UV_EINVAL;
-    }
-
     r = sem_wait(_sem);
   } while (r == -1 && errno == EINTR);
 
@@ -100,8 +92,6 @@ int Semafour::Wait() {
 
 
 int Semafour::Unlink() {
-  _sem = NULL;
-
   if (sem_unlink(_name) != 0) {
     // Try to unify the error that is returned.
     if (-errno == UV_ENOENT) {
@@ -116,15 +106,7 @@ int Semafour::Unlink() {
 
 
 int Semafour::Close() {
-  if (_sem == NULL) {
-    return UV_EINVAL;
-  }
-
-  int r = sem_close(_sem);
-
-  _sem = NULL;
-
-  if (r != 0) {
+  if (sem_close(_sem) != 0) {
     return -errno;
   }
 
