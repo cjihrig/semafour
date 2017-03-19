@@ -1,5 +1,7 @@
 'use strict';
+const Cp = require('child_process');
 const Crypto = require('crypto');
+const Path = require('path');
 const Code = require('code');
 const Lab = require('lab');
 const Semafour = require('../');
@@ -195,5 +197,40 @@ describe('Semafour', () => {
       SemafourWrap();
     }).to.throw(Error, 'Semafour must be constructed using new');
     done();
+  });
+
+  it('works across processes', (done) => {
+    const name = getName();
+    const sem = Semafour.create({ name });
+    const child = Cp.fork(Path.resolve(__dirname, '..', 'fixtures', 'child.js'),
+                          { silent: true, env: { semafour: name } });
+    let waited = false;
+    let closed = false;
+
+    function maybeDone () {
+      if (waited === true && closed === true) {
+        sem.unlinkSync();
+        done();
+      }
+    }
+
+    child.on('message', (msg) => {
+      expect(msg.msg).to.equal('ack');
+      sem.postSync();
+      sem.wait((err) => {
+        expect(err).to.equal(null);
+        waited = true;
+        maybeDone();
+      });
+    });
+
+    child.on('close', (code, signal) => {
+      expect(code).to.equal(0);
+      expect(signal).to.equal(null);
+      closed = true;
+      maybeDone();
+    });
+
+    child.send({ msg: 'online?' });
   });
 });

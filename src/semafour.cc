@@ -190,6 +190,7 @@ static void AfterWait(uv_work_t* req, int status) {
   async_req* request = reinterpret_cast<async_req*>(req->data);
   Isolate* isolate = request->isolate;
   v8::HandleScope scope(isolate);
+  Local<Object> recv = request->sem->handle(isolate);
   Local<Function> callback = Local<Function>::New(isolate, request->callback);
   const unsigned argc = 1;
   Local<Value> argv[argc] = {};
@@ -200,7 +201,11 @@ static void AfterWait(uv_work_t* req, int status) {
     argv[0] = node::UVException(request->result, "sem_wait");
   }
 
-  callback->Call(Null(request->isolate), argc, argv);
+  node::MakeCallback(isolate,
+                     recv,
+                     callback,
+                     argc,
+                     argv);
   request->callback.Reset();
   delete req;
 }
