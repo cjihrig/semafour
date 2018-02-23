@@ -3,8 +3,8 @@
 [![Current Version](https://img.shields.io/npm/v/semafour.svg)](https://www.npmjs.org/package/semafour)
 [![Build Status via Travis CI](https://travis-ci.org/continuationlabs/semafour.svg?branch=master)](https://travis-ci.org/continuationlabs/semafour)
 ![Dependencies](http://img.shields.io/david/continuationlabs/semafour.svg)
+[![belly-button-style](https://img.shields.io/badge/eslint-bellybutton-4B32C3.svg)](https://github.com/continuationlabs/belly-button)
 
-[![belly-button-style](https://cdn.rawgit.com/continuationlabs/belly-button/master/badge.svg)](https://github.com/continuationlabs/belly-button)
 
 Node.js semaphore with synchronous and asynchronous APIs. `semafour` uses named semaphores, and can be used to achieve synchronization across multiple processes.
 
