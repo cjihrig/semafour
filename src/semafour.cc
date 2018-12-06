@@ -17,12 +17,11 @@ using v8::Value;
 
 Persistent<Function> Semafour::constructor;
 
-
 #define THROW(type, msg)                                                      \
   (isolate->ThrowException(Exception::type(String::NewFromUtf8(isolate, msg))))
 
 #define THROW_UV(err, fn_name)                                                \
-  (isolate->ThrowException(node::UVException(err, fn_name)))
+  (isolate->ThrowException(node::UVException(isolate, err, fn_name)))
 
 #define UNWRAP(type) (ObjectWrap::Unwrap<type>(args.Holder()))
 
@@ -154,7 +153,7 @@ void Semafour::Post(const v8::FunctionCallbackInfo<v8::Value>& args) {
   int r = sem->Post();
 
   if (r != 0) {
-    args.GetReturnValue().Set(node::UVException(r, "sem_post"));
+    args.GetReturnValue().Set(node::UVException(isolate, r, "sem_post"));
   } else {
     args.GetReturnValue().Set(Null(isolate));
   }
@@ -178,9 +177,9 @@ static void AfterWait(uv_work_t* req, int status) {
   Local<Value> argv[argc] = {};
 
   if (request->result == 0) {
-    argv[0] = Null(request->isolate);
+    argv[0] = Null(isolate);
   } else {
-    argv[0] = node::UVException(request->result, "sem_wait");
+    argv[0] = node::UVException(isolate, request->result, "sem_wait");
   }
 
   node::MakeCallback(isolate,
@@ -237,7 +236,7 @@ void Semafour::Unlink(const v8::FunctionCallbackInfo<v8::Value>& args) {
   int r = sem->Unlink();
 
   if (r != 0) {
-    args.GetReturnValue().Set(node::UVException(r, "sem_unlink"));
+    args.GetReturnValue().Set(node::UVException(isolate, r, "sem_unlink"));
   } else {
     args.GetReturnValue().Set(Null(isolate));
   }
