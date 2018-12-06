@@ -24,6 +24,40 @@ function syncMock () {
 
 
 describe('Semafour', () => {
+  it('can try locking semaphores', (done) => {
+    const sem = Semafour.create({ name: getName(), value: 1 });
+
+    expect(sem.tryWaitSync()).to.equal(true);
+
+    expect(sem.tryWaitSync()).to.equal(false);
+    sem.postSync();
+
+    expect(sem.tryWaitSync()).to.equal(true);
+
+    sem.unlinkSync();
+
+    done();
+  });
+
+  it('can try locking semaphores asynchronously', (done) => {
+    const sem = Semafour.create({ name: getName(), value: 1 });
+
+    sem.tryWait((err, value) => {
+      expect(err).to.equal(null);
+      expect(value).to.equal(true);
+
+      sem.tryWait((err, value) => {
+        expect(err).to.equal(null);
+        expect(value).to.equal(false);
+
+        sem.unlink((err) => {
+          expect(err).to.equal(null);
+          done();
+        });
+      });
+    });
+  });
+
   it('obtains the semaphore synchronously', () => {
     let sem = Semafour.create({ name: getName(), value: 1 });
 
