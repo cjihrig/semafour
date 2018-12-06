@@ -17,6 +17,7 @@
 class Semafour : public node::ObjectWrap {
   public:
     static void Init(v8::Local<v8::Object> exports);
+    int TryWait();
     int Post();
     int Wait();
     int Unlink();
@@ -34,6 +35,7 @@ class Semafour : public node::ObjectWrap {
     static void Wait(const v8::FunctionCallbackInfo<v8::Value>& args);
     static void Unlink(const v8::FunctionCallbackInfo<v8::Value>& args);
     static void Close(const v8::FunctionCallbackInfo<v8::Value>& args);
+    static void TryWait(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
 
 

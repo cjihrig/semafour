@@ -91,6 +91,27 @@ int Semafour::Wait() {
 }
 
 
+int Semafour::TryWait() {
+  int r;
+
+  do {
+    r = sem_trywait(_sem);
+  } while (r == -1 && errno == EINTR);
+
+  bool locked = r == -1 && errno == EAGAIN;
+
+  if (r == -1 && !locked) {
+    return -errno;
+  }
+
+  return (
+    locked
+    ? TRYWAIT_LOCKED
+    : TRYWAIT_OK
+  );
+}
+
+
 int Semafour::Unlink() {
   if (sem_unlink(_name) != 0) {
     // Try to unify the error that is returned.
@@ -168,6 +189,13 @@ static void WaitWork(uv_work_t* req) {
 }
 
 
+static void TryWaitWork(uv_work_t* req) {
+  async_req* request = reinterpret_cast<async_req*>(req->data);
+
+  request->result = request->sem->TryWait();
+}
+
+
 static void AfterWait(uv_work_t* req, int status) {
   async_req* request = reinterpret_cast<async_req*>(req->data);
   Isolate* isolate = request->isolate;
@@ -181,6 +209,41 @@ static void AfterWait(uv_work_t* req, int status) {
     argv[0] = Null(isolate);
   } else {
     argv[0] = node::UVException(isolate, request->result, "sem_wait");
+  }
+
+  node::MakeCallback(isolate,
+                     recv,
+                     callback,
+                     argc,
+                     argv);
+  request->callback.Reset();
+  delete req;
+}
+
+
+static void AfterTryWait(uv_work_t* req, int status) {
+  async_req* request = reinterpret_cast<async_req*>(req->data);
+  Isolate* isolate = request->isolate;
+  v8::HandleScope scope(isolate);
+  Local<Object> recv = request->sem->handle(isolate);
+  Local<Function> callback = Local<Function>::New(isolate, request->callback);
+
+  unsigned argc = (
+    request->result == TRYWAIT_LOCKED || request->result == TRYWAIT_OK
+    ? 2
+    : 1
+  );
+
+  Local<Value> argv[argc] = {};
+
+  if (request->result == TRYWAIT_LOCKED) {
+    argv[0] = Null(isolate);
+    argv[1] = False(isolate);
+  } else if (request->result == TRYWAIT_OK) {
+    argv[0] = Null(isolate);
+    argv[1] = True(isolate);
+  } else {
+    argv[0] = node::UVException(isolate, request->result, "sem_trywait");
   }
 
   node::MakeCallback(isolate,
@@ -257,6 +320,50 @@ void Semafour::Close(const v8::FunctionCallbackInfo<v8::Value>& args) {
 }
 
 
+void Semafour::TryWait(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  Semafour* sem = UNWRAP(Semafour);
+  Isolate* isolate = args.GetIsolate();
+  int r;
+
+  if (args.Length() == 0) {
+    // Handle synchronous case.
+    r = sem->TryWait();
+
+    if (r != TRYWAIT_LOCKED && r != TRYWAIT_OK) {
+      THROW_UV(r, "sem_trywait");
+    }
+
+    args.GetReturnValue().Set(
+      r == TRYWAIT_LOCKED
+      ? False(isolate)
+      : True(isolate)
+    );
+
+    return;
+  } else if (!args[0]->IsFunction()) {
+    THROW(TypeError, "callback must be a function");
+    return;
+  }
+
+  Local<Function> callback = Local<Function>::Cast(args[0]);
+  async_req* req = new async_req;
+
+  req->sem = sem;
+  req->isolate = isolate;
+  req->callback.Reset(isolate, callback);
+  req->req.data = req;
+
+  r = uv_queue_work(uv_default_loop(),
+                    &req->req,
+                    TryWaitWork,
+                    (uv_after_work_cb) AfterTryWait);
+
+  if (r != 0) {
+    abort();
+  }
+}
+
+
 void Semafour::Init(Local<Object> exports) {
   Isolate* isolate = exports->GetIsolate();
 
@@ -269,6 +376,7 @@ void Semafour::Init(Local<Object> exports) {
   NODE_SET_PROTOTYPE_METHOD(tpl, "post", Post);
   NODE_SET_PROTOTYPE_METHOD(tpl, "wait", Wait);
   NODE_SET_PROTOTYPE_METHOD(tpl, "unlink", Unlink);
+  NODE_SET_PROTOTYPE_METHOD(tpl, "tryWait", TryWait);
   NODE_SET_PROTOTYPE_METHOD(tpl, "close", Close);
 
   constructor.Reset(isolate, tpl->GetFunction());
