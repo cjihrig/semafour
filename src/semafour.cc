@@ -239,7 +239,7 @@ static void AfterTryWait(uv_work_t* req, int status) {
     : 1
   );
 
-  Local<Value> argv[argc] = {};
+  Local<Value> argv[argc];
 
   if (request->result == TRYWAIT_LOCKED) {
     argv[0] = Null(isolate);
