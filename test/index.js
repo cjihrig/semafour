@@ -2,6 +2,7 @@
 const Cp = require('child_process');
 const Crypto = require('crypto');
 const Path = require('path');
+const Barrier = require('cb-barrier');
 const Code = require('code');
 const Lab = require('lab');
 const StandIn = require('stand-in');
@@ -23,7 +24,7 @@ function syncMock () {
 
 
 describe('Semafour', () => {
-  it('obtains the semaphore synchronously', (done) => {
+  it('obtains the semaphore synchronously', () => {
     let sem = Semafour.create({ name: getName(), value: 1 });
 
     sem.waitSync();
@@ -33,10 +34,10 @@ describe('Semafour', () => {
     sem.postSync();
     sem.waitSync();
     sem.unlinkSync();
-    done();
   });
 
-  it('obtains the semaphore asynchronously', (done) => {
+  it('obtains the semaphore asynchronously', () => {
+    const barrier = new Barrier();
     const sem = Semafour.create({ name: getName() });
 
     sem.post((err) => {
@@ -45,13 +46,15 @@ describe('Semafour', () => {
         expect(err).to.equal(null);
         sem.unlink((err) => {
           expect(err).to.equal(null);
-          done();
+          barrier.pass();
         });
       });
     });
+
+    return barrier;
   });
 
-  it('create() fails to create a new semaphore if the name exists', (done) => {
+  it('create() fails to create a new semaphore if the name exists', () => {
     const name = getName();
     const sem = Semafour.create({ name });
 
@@ -59,20 +62,19 @@ describe('Semafour', () => {
       Semafour.create({ name });
     }).to.throw(Error, 'EEXIST: file already exists, sem_open');
     sem.unlinkSync();
-    done();
   });
 
-  it('use() retrieves an existing named semaphore', (done) => {
+  it('use() retrieves an existing named semaphore', () => {
     const name = getName();
     Semafour.create({ name, value: 1 });
     const sem = Semafour.use({ name });
 
     sem.waitSync();
     sem.unlinkSync();
-    done();
   });
 
-  it('post() and postSync() handle errors from the binding layer', (done) => {
+  it('post() and postSync() handle errors from the binding layer', () => {
+    const barrier = new Barrier();
     const sem = Semafour.create({ name: getName(), value: 1 });
 
     sem.unlinkSync();
@@ -85,11 +87,14 @@ describe('Semafour', () => {
     StandIn.replaceOnce(SemafourWrap.prototype, 'post', syncMock);
     sem.post((err) => {
       expect(err).to.be.an.error(Error, 'mock-error');
-      done();
+      barrier.pass();
     });
+
+    return barrier;
   });
 
-  it('wait() and waitSync() handle errors from the binding layer', (done) => {
+  it('wait() and waitSync() handle errors from the binding layer', () => {
+    const barrier = new Barrier();
     const sem = Semafour.create({ name: getName(), value: 1 });
 
     sem.unlinkSync();
@@ -106,11 +111,14 @@ describe('Semafour', () => {
     });
     sem.wait((err) => {
       expect(err).to.be.an.error(Error, 'mock-error');
-      done();
+      barrier.pass();
     });
+
+    return barrier;
   });
 
-  it('close() and closeSync() handle errors from the binding layer', (done) => {
+  it('close() and closeSync() handle errors from the binding layer', () => {
+    const barrier = new Barrier();
     const sem = Semafour.create({ name: getName(), value: 1 });
 
     sem.unlinkSync();
@@ -123,11 +131,14 @@ describe('Semafour', () => {
     StandIn.replaceOnce(SemafourWrap.prototype, 'close', syncMock);
     sem.close((err) => {
       expect(err).to.be.an.error(Error, 'mock-error');
-      done();
+      barrier.pass();
     });
+
+    return barrier;
   });
 
-  it('semaphore can only be unlinked once', (done) => {
+  it('semaphore can only be unlinked once', () => {
+    const barrier = new Barrier();
     const sem = Semafour.create({ name: getName() });
 
     sem.unlinkSync();
@@ -138,19 +149,20 @@ describe('Semafour', () => {
 
     sem.unlink((err) => {
       expect(err).to.be.an.error(Error, 'EINVAL: invalid argument, sem_unlink');
-      done();
+      barrier.pass();
     });
+
+    return barrier;
   });
 
-  it('semaphore can be unlinked after closing', (done) => {
+  it('semaphore can be unlinked after closing', () => {
     const sem = Semafour.create({ name: getName() });
 
     sem.closeSync();
     sem.unlinkSync();
-    done();
   });
 
-  it('constructor throws on invalid input', (done) => {
+  it('constructor throws on invalid input', () => {
     function failName (name) {
       expect(() => {
         new Semafour({ name });  // eslint-disable-line no-new
@@ -172,68 +184,63 @@ describe('Semafour', () => {
     [null, true, false, {}, /x/, [], NaN, Infinity, 3.14, -1].forEach(failName);
     [null, true, {}, /x/, '', 'foo', [], NaN, 3.14, -1].forEach(failValue);
     [null, {}, /x/, '', 'foo', [], NaN, 3.14, -1].forEach(failCreate);
-    done();
   });
 
-  it('post() throws if callback is not a function', (done) => {
+  it('post() throws if callback is not a function', () => {
     const sem = Semafour.create({ name: getName() });
 
     expect(() => {
       sem.post();
     }).to.throw(TypeError, 'callback must be a function');
     sem.unlinkSync();
-    done();
   });
 
-  it('wait() throws if callback is not a function', (done) => {
+  it('wait() throws if callback is not a function', () => {
     const sem = Semafour.create({ name: getName() });
 
     expect(() => {
       sem.wait();
     }).to.throw(TypeError, 'callback must be a function');
     sem.unlinkSync();
-    done();
   });
 
-  it('unlink() throws if callback is not a function', (done) => {
+  it('unlink() throws if callback is not a function', () => {
     const sem = Semafour.create({ name: getName() });
 
     expect(() => {
       sem.unlink();
     }).to.throw(TypeError, 'callback must be a function');
     sem.unlinkSync();
-    done();
   });
 
-  it('close() throws if callback is not a function', (done) => {
+  it('close() throws if callback is not a function', () => {
     const sem = Semafour.create({ name: getName() });
 
     expect(() => {
       sem.close();
     }).to.throw(TypeError, 'callback must be a function');
     sem.unlinkSync();
-    done();
   });
 
-  it('binding throws when constructed without new', (done) => {
+  it('binding throws when constructed without new', () => {
     expect(() => {
       SemafourWrap();
     }).to.throw(Error, 'Semafour must be constructed using new');
-    done();
   });
 
-  it('works across processes', (done) => {
+  it('works across processes', () => {
+    const barrier = new Barrier();
     const name = getName();
     const sem = Semafour.create({ name });
     const child = Cp.fork(Path.resolve(__dirname, '..', 'fixtures', 'child.js'),
-                          { silent: true, env: { semafour: name } });
+      { silent: true, env: { semafour: name } });
     let waited = false;
     let closed = false;
 
     function maybeDone () {
       if (waited === true && closed === true) {
         sem.unlinkSync();
-        done();
+        barrier.pass();
       }
     }
 
@@ -255,5 +262,7 @@ describe('Semafour', () => {
     });
 
     child.send({ msg: 'online?' });
+
+    return barrier;
   });
 });

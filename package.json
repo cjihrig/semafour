@@ -2,16 +2,16 @@
   "name": "semafour",
   "version": "0.2.0",
   "description": "Node.js semaphore",
-  "author": "Continuation Labs <contact@continuation.io> (http://continuation.io/)",
+  "author": "Colin J. Ihrig <cjihrig@gmail.com> (http://www.cjihrig.com/)",
   "main": "lib/index.js",
   "gypfile": true,
-  "homepage": "https://github.com/continuationlabs/semafour",
+  "homepage": "https://github.com/cjihrig/semafour",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/continuationlabs/semafour.git"
+    "url": "git+https://github.com/cjihrig/semafour.git"
   },
   "bugs": {
-    "url": "https://github.com/continuationlabs/semafour/issues"
+    "url": "https://github.com/cjihrig/semafour/issues"
   },
   "license": "MIT",
   "scripts": {
@@ -20,14 +20,15 @@
     "rebuild": "node-gyp rebuild"
   },
   "engines": {
-    "node": ">=4.0.0"
+    "node": ">=8.0.0"
   },
   "dependencies": {},
   "devDependencies": {
-    "belly-button": "3.1.0",
-    "code": "4.0.0",
-    "lab": "13.0.1",
-    "stand-in": "4.1.0"
+    "belly-button": "5.x.x",
+    "cb-barrier": "1.x.x",
+    "code": "5.x.x",
+    "lab": "18.x.x",
+    "stand-in": "4.x.x"
   },
   "keywords": [
     "semaphore",
