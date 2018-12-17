@@ -17,11 +17,12 @@ using v8::Value;
 
 Persistent<Function> Semafour::constructor;
 
-#define THROW(type, msg)                                                      \
-  (isolate->ThrowException(Exception::type(String::NewFromUtf8(isolate, msg))))
+#define THROW(isolate, type, msg)                                             \
+  ((isolate)->ThrowException(Exception::type(                                 \
+    String::NewFromUtf8((isolate), (msg)))))                                  \
 
-#define THROW_UV(err, fn_name)                                                \
-  (isolate->ThrowException(node::UVException(isolate, err, fn_name)))
+#define THROW_UV(isolate, err, fn_name)                                       \
+  ((isolate)->ThrowException(node::UVException((isolate), (err), (fn_name))))
 
 #define UNWRAP(type) (ObjectWrap::Unwrap<type>(args.Holder()))
 
@@ -117,20 +118,20 @@ void Semafour::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
   Isolate* isolate = args.GetIsolate();
 
   if (!args.IsConstructCall()) {
-    THROW(Error, "Semafour must be constructed using new");
+    THROW(isolate, Error, "Semafour must be constructed using new");
     return;
   } else if (!args[0]->IsString()) {
-    THROW(TypeError, "name must be a string");
+    THROW(isolate, TypeError, "name must be a string");
     return;
   } else if (!args[1]->IsUint32()) {
-    THROW(TypeError, "value must be an unsigned integer");
+    THROW(isolate, TypeError, "value must be an unsigned integer");
     return;
   } else if (!args[2]->IsBoolean()) {
-    THROW(TypeError, "create must be a boolean");
+    THROW(isolate, TypeError, "create must be a boolean");
     return;
   }
 
-  String::Utf8Value str(args[0]);
+  String::Utf8Value str(isolate, args[0]);
   const char* name = *str;
   uint32_t value = args[1].As<Uint32>()->Value();
   bool create = args[2].As<Boolean>()->Value();
@@ -138,7 +139,7 @@ void Semafour::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
   Semafour* sem = new Semafour(name, value, create, &r);
 
   if (r != 0) {
-    THROW_UV(r, "sem_open");
+    THROW_UV(isolate, r, "sem_open");
     return;
   }
 
@@ -202,12 +203,12 @@ void Semafour::Wait(const v8::FunctionCallbackInfo<v8::Value>& args) {
     r = sem->Wait();
 
     if (r != 0) {
-      THROW_UV(r, "sem_wait");
+      THROW_UV(isolate, r, "sem_wait");
     }
 
     return;
   } else if (!args[0]->IsFunction()) {
-    THROW(TypeError, "callback must be a function");
+    THROW(isolate, TypeError, "callback must be a function");
     return;
   }
 
@@ -249,7 +250,7 @@ void Semafour::Close(const v8::FunctionCallbackInfo<v8::Value>& args) {
   int r = sem->Close();
 
   if (r != 0) {
-    args.GetReturnValue().Set(node::UVException(r, "sem_close"));
+    args.GetReturnValue().Set(node::UVException(isolate, r, "sem_close"));
   } else {
     args.GetReturnValue().Set(Null(isolate));
   }
