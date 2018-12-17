@@ -14,13 +14,8 @@ using v8::Persistent;
 using v8::String;
 using v8::Uint32;
 using v8::Value;
-using v8::False;
-using v8::True;
 
 Persistent<Function> Semafour::constructor;
-
-#define TRYWAIT_OK     0
-#define TRYWAIT_LOCKED 1
 
 #define THROW(type, msg)                                                      \
   (isolate->ThrowException(Exception::type(String::NewFromUtf8(isolate, msg))))
