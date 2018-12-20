@@ -24,22 +24,18 @@ function syncMock () {
 
 
 describe('Semafour', () => {
-  it('can try locking semaphores', (done) => {
+  it('can try locking semaphores', () => {
     const sem = Semafour.create({ name: getName(), value: 1 });
-
     expect(sem.tryWaitSync()).to.equal(true);
 
     expect(sem.tryWaitSync()).to.equal(false);
     sem.postSync();
-
     expect(sem.tryWaitSync()).to.equal(true);
-
     sem.unlinkSync();
-
-    done();
   });
 
-  it('can try locking semaphores asynchronously', (done) => {
+  it('can try locking semaphores asynchronously', () => {
+    const barrier = new Barrier();
     const sem = Semafour.create({ name: getName(), value: 1 });
 
     sem.tryWait((err, value) => {
@@ -52,7 +48,7 @@ describe('Semafour', () => {
 
         sem.unlink((err) => {
           expect(err).to.equal(null);
-          done();
+          barrier.pass();
         });
       });
     });

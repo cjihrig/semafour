@@ -3,6 +3,7 @@
 using v8::Boolean;
 using v8::Context;
 using v8::Exception;
+using v8::False;
 using v8::Function;
 using v8::FunctionCallbackInfo;
 using v8::FunctionTemplate;
@@ -12,15 +13,14 @@ using v8::Number;
 using v8::Object;
 using v8::Persistent;
 using v8::String;
+using v8::True;
 using v8::Uint32;
 using v8::Value;
-using v8::False;
-using v8::True;
 
 Persistent<Function> Semafour::constructor;
 
-#define TRYWAIT_OK     0
-#define TRYWAIT_LOCKED 1
+const int kTryWaitOk     = 0;
+const int kTryWaitLocked = 1;
 
 #define THROW(isolate, type, msg)                                             \
   ((isolate)->ThrowException(Exception::type(                                 \
@@ -111,8 +111,8 @@ int Semafour::TryWait() {
 
   return (
     locked
-    ? TRYWAIT_LOCKED
-    : TRYWAIT_OK
+    ? kTryWaitLocked
+    : kTryWaitOk
   );
 }
 
@@ -234,17 +234,17 @@ static void AfterTryWait(uv_work_t* req, int status) {
   Local<Function> callback = Local<Function>::New(isolate, request->callback);
 
   unsigned argc = (
-    request->result == TRYWAIT_LOCKED || request->result == TRYWAIT_OK
+    request->result == kTryWaitLocked || request->result == kTryWaitOk
     ? 2
     : 1
   );
 
   Local<Value> argv[argc];
 
-  if (request->result == TRYWAIT_LOCKED) {
+  if (request->result == kTryWaitLocked) {
     argv[0] = Null(isolate);
     argv[1] = False(isolate);
-  } else if (request->result == TRYWAIT_OK) {
+  } else if (request->result == kTryWaitOk) {
     argv[0] = Null(isolate);
     argv[1] = True(isolate);
   } else {
@@ -334,19 +334,19 @@ void Semafour::TryWait(const v8::FunctionCallbackInfo<v8::Value>& args) {
     // Handle synchronous case.
     r = sem->TryWait();
 
-    if (r != TRYWAIT_LOCKED && r != TRYWAIT_OK) {
-      THROW_UV(r, "sem_trywait");
+    if (r != kTryWaitLocked && r != kTryWaitOk) {
+      THROW_UV(isolate, r, "sem_trywait");
     }
 
     args.GetReturnValue().Set(
-      r == TRYWAIT_LOCKED
+      r == kTryWaitLocked
       ? False(isolate)
       : True(isolate)
     );
 
     return;
   } else if (!args[0]->IsFunction()) {
-    THROW(TypeError, "callback must be a function");
+    THROW(isolate, TypeError, "callback must be a function");
     return;
   }
 
