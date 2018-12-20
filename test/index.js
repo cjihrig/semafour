@@ -34,26 +34,6 @@ describe('Semafour', () => {
     sem.unlinkSync();
   });
 
-  it('can try locking semaphores asynchronously', () => {
-    const barrier = new Barrier();
-    const sem = Semafour.create({ name: getName(), value: 1 });
-
-    sem.tryWait((err, value) => {
-      expect(err).to.equal(null);
-      expect(value).to.equal(true);
-
-      sem.tryWait((err, value) => {
-        expect(err).to.equal(null);
-        expect(value).to.equal(false);
-
-        sem.unlink((err) => {
-          expect(err).to.equal(null);
-          barrier.pass();
-        });
-      });
-    });
-  });
-
   it('obtains the semaphore synchronously', () => {
     let sem = Semafour.create({ name: getName(), value: 1 });
 

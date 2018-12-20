@@ -19,8 +19,6 @@ using v8::Value;
 
 Persistent<Function> Semafour::constructor;
 
-const int kTryWaitAcquiredLock  = 0;
-const int kTryWaitAlreadyLocked = 1;
 
 #define THROW(isolate, type, msg)                                             \
   ((isolate)->ThrowException(Exception::type(                                 \
@@ -81,11 +79,11 @@ int Semafour::Post() {
 }
 
 
-int Semafour::Wait() {
+int Semafour::Wait(bool nonBlocking) {
   int r;
 
   do {
-    r = sem_wait(_sem);
+    r = nonBlocking ? sem_trywait(_sem) : sem_wait(_sem);
   } while (r == -1 && errno == EINTR);
 
   if (r != 0) {
@@ -93,28 +91,6 @@ int Semafour::Wait() {
   }
 
   return 0;
-}
-
-
-int Semafour::TryWait() {
-  int r;
-
-  do {
-    r = sem_trywait(_sem);
-  } while (r == -1 && errno == EINTR);
-
-  // No error!
-  if (r == 0) {
-    return kTryWaitAcquiredLock;
-  }
-
-  // The semaphore couldn't be acquired because its value is 0.
-  if (errno == EAGAIN) {
-    return kTryWaitAlreadyLocked;
-  }
-
-  // An unknown error occurred - we just return it.
-  return -errno;
 }
 
 
@@ -191,14 +167,7 @@ void Semafour::Post(const v8::FunctionCallbackInfo<v8::Value>& args) {
 static void WaitWork(uv_work_t* req) {
   async_req* request = reinterpret_cast<async_req*>(req->data);
 
-  request->result = request->sem->Wait();
-}
-
-
-static void TryWaitWork(uv_work_t* req) {
-  async_req* request = reinterpret_cast<async_req*>(req->data);
-
-  request->result = request->sem->TryWait();
+  request->result = request->sem->Wait(false);
 }
 
 
@@ -227,35 +196,6 @@ static void AfterWait(uv_work_t* req, int status) {
 }
 
 
-static void AfterTryWait(uv_work_t* req, int status) {
-  async_req* request = reinterpret_cast<async_req*>(req->data);
-  Isolate* isolate = request->isolate;
-  v8::HandleScope scope(isolate);
-  Local<Object> recv = request->sem->handle(isolate);
-  Local<Function> callback = Local<Function>::New(isolate, request->callback);
-  bool acquiredLock = request->result == kTryWaitAcquiredLock;
-
-  unsigned argc = (request->result == kTryWaitAlreadyLocked || acquiredLock) ? 2 : 1;
-
-  Local<Value> argv[argc];
-
-  if (acquiredLock || request->result == kTryWaitAlreadyLocked) {
-    argv[0] = Null(isolate);
-    argv[1] = acquiredLock ? True(isolate) : False(isolate);
-  } else {
-    argv[0] = node::UVException(isolate, request->result, "sem_trywait");
-  }
-
-  node::MakeCallback(isolate,
-                     recv,
-                     callback,
-                     argc,
-                     argv);
-  request->callback.Reset();
-  delete req;
-}
-
-
 void Semafour::Wait(const v8::FunctionCallbackInfo<v8::Value>& args) {
   Semafour* sem = UNWRAP(Semafour);
   Isolate* isolate = args.GetIsolate();
@@ -263,7 +203,7 @@ void Semafour::Wait(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
   if (args.Length() == 0) {
     // Handle synchronous case.
-    r = sem->Wait();
+    r = sem->Wait(false);
 
     if (r != 0) {
       THROW_UV(isolate, r, "sem_wait");
@@ -325,42 +265,18 @@ void Semafour::TryWait(const v8::FunctionCallbackInfo<v8::Value>& args) {
   Isolate* isolate = args.GetIsolate();
   int r;
 
-  if (args.Length() == 0) {
-    // Handle synchronous case.
-    r = sem->TryWait();
+  // Handle synchronous case.
+  r = sem->Wait(true);
 
-    if (r != kTryWaitAlreadyLocked && r != kTryWaitAcquiredLock) {
-      THROW_UV(isolate, r, "sem_trywait");
-    }
-
-    args.GetReturnValue().Set(
-      r == kTryWaitAlreadyLocked
-      ? False(isolate)
-      : True(isolate)
-    );
-
-    return;
-  } else if (!args[0]->IsFunction()) {
-    THROW(isolate, TypeError, "callback must be a function");
-    return;
+  if (r != 0 && r != -EAGAIN) {
+    THROW_UV(isolate, r, "sem_trywait");
   }
 
-  Local<Function> callback = Local<Function>::Cast(args[0]);
-  async_req* req = new async_req;
-
-  req->sem = sem;
-  req->isolate = isolate;
-  req->callback.Reset(isolate, callback);
-  req->req.data = req;
-
-  r = uv_queue_work(uv_default_loop(),
-                    &req->req,
-                    TryWaitWork,
-                    (uv_after_work_cb) AfterTryWait);
-
-  if (r != 0) {
-    abort();
-  }
+  args.GetReturnValue().Set(
+    r == -EAGAIN
+    ? False(isolate)
+    : True(isolate)
+  );
 }
 
 

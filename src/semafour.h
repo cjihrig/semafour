@@ -17,9 +17,8 @@
 class Semafour : public node::ObjectWrap {
   public:
     static void Init(v8::Local<v8::Object> exports);
-    int TryWait();
     int Post();
-    int Wait();
+    int Wait(bool nonBlocking);
     int Unlink();
     int Close();
 

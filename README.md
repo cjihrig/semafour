@@ -97,15 +97,6 @@ Acquires the semaphore asynchronously. The wait operation is performed on a sepa
 
 Acquires the semaphore synchronously. The wait operation is performed on the main thread, and will block the event loop until the semaphore is acquired. Throws if an error occurs.
 
-### `Semafour.prototype.tryWait(callback)`
-
-  - Arguments
-    - `callback(err, succeeded)` (function) - Callback function, which takes an error argument, and a boolean that is true if the semaphore was acquired, false otherwise.
-  - Returns
-    - Nothing.
-
-Tries to acquire the semaphore asynchronously. The tryWait operation is performed on a separate thread in the libuv thread pool to avoid blocking the event loop. Once the semaphore is acquired (if possible), the callback is invoked. Any errors that occur are passed to the callback function.
-
 ### `Semafour.prototype.tryWaitSync()`
 
   - Arguments
