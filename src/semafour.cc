@@ -19,8 +19,8 @@ using v8::Value;
 
 Persistent<Function> Semafour::constructor;
 
-const int kTryWaitOk     = 0;
-const int kTryWaitLocked = 1;
+const int kTryWaitAcquiredLock  = 0;
+const int kTryWaitAlreadyLocked = 1;
 
 #define THROW(isolate, type, msg)                                             \
   ((isolate)->ThrowException(Exception::type(                                 \
@@ -103,17 +103,18 @@ int Semafour::TryWait() {
     r = sem_trywait(_sem);
   } while (r == -1 && errno == EINTR);
 
-  bool locked = r == -1 && errno == EAGAIN;
-
-  if (r == -1 && !locked) {
-    return -errno;
+  // No error!
+  if (r == 0) {
+    return kTryWaitAcquiredLock;
   }
 
-  return (
-    locked
-    ? kTryWaitLocked
-    : kTryWaitOk
-  );
+  // The semaphore couldn't be acquired because its value is 0.
+  if (errno == EAGAIN) {
+    return kTryWaitAlreadyLocked;
+  }
+
+  // An unknown error occurred - we just return it.
+  return -errno;
 }
 
 
@@ -232,21 +233,15 @@ static void AfterTryWait(uv_work_t* req, int status) {
   v8::HandleScope scope(isolate);
   Local<Object> recv = request->sem->handle(isolate);
   Local<Function> callback = Local<Function>::New(isolate, request->callback);
+  bool acquiredLock = request->result == kTryWaitAcquiredLock;
 
-  unsigned argc = (
-    request->result == kTryWaitLocked || request->result == kTryWaitOk
-    ? 2
-    : 1
-  );
+  unsigned argc = (request->result == kTryWaitAlreadyLocked || acquiredLock) ? 2 : 1;
 
   Local<Value> argv[argc];
 
-  if (request->result == kTryWaitLocked) {
+  if (acquiredLock || request->result == kTryWaitAlreadyLocked) {
     argv[0] = Null(isolate);
-    argv[1] = False(isolate);
-  } else if (request->result == kTryWaitOk) {
-    argv[0] = Null(isolate);
-    argv[1] = True(isolate);
+    argv[1] = acquiredLock ? True(isolate) : False(isolate);
   } else {
     argv[0] = node::UVException(isolate, request->result, "sem_trywait");
   }
@@ -334,12 +329,12 @@ void Semafour::TryWait(const v8::FunctionCallbackInfo<v8::Value>& args) {
     // Handle synchronous case.
     r = sem->TryWait();
 
-    if (r != kTryWaitLocked && r != kTryWaitOk) {
+    if (r != kTryWaitAlreadyLocked && r != kTryWaitAcquiredLock) {
       THROW_UV(isolate, r, "sem_trywait");
     }
 
     args.GetReturnValue().Set(
-      r == kTryWaitLocked
+      r == kTryWaitAlreadyLocked
       ? False(isolate)
       : True(isolate)
     );
