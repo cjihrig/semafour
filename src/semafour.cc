@@ -79,11 +79,26 @@ int Semafour::Post() {
 }
 
 
-int Semafour::Wait(bool nonBlocking) {
+int Semafour::Wait() {
   int r;
 
   do {
-    r = nonBlocking ? sem_trywait(_sem) : sem_wait(_sem);
+    r = sem_wait(_sem);
+  } while (r == -1 && errno == EINTR);
+
+  if (r != 0) {
+    return -errno;
+  }
+
+  return 0;
+}
+
+
+int Semafour::TryWait() {
+  int r;
+
+  do {
+    r = sem_trywait(_sem);
   } while (r == -1 && errno == EINTR);
 
   if (r != 0) {
@@ -167,7 +182,7 @@ void Semafour::Post(const v8::FunctionCallbackInfo<v8::Value>& args) {
 static void WaitWork(uv_work_t* req) {
   async_req* request = reinterpret_cast<async_req*>(req->data);
 
-  request->result = request->sem->Wait(false);
+  request->result = request->sem->Wait();
 }
 
 
@@ -203,7 +218,7 @@ void Semafour::Wait(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
   if (args.Length() == 0) {
     // Handle synchronous case.
-    r = sem->Wait(false);
+    r = sem->Wait();
 
     if (r != 0) {
       THROW_UV(isolate, r, "sem_wait");
@@ -265,18 +280,17 @@ void Semafour::TryWait(const v8::FunctionCallbackInfo<v8::Value>& args) {
   Isolate* isolate = args.GetIsolate();
   int r;
 
-  // Handle synchronous case.
-  r = sem->Wait(true);
+  r = sem->TryWait();
 
   if (r != 0 && r != -EAGAIN) {
-    THROW_UV(isolate, r, "sem_trywait");
+    args.GetReturnValue().Set(node::UVException(isolate, r, "sem_trywait"));
+  } else {
+    args.GetReturnValue().Set(
+      r == -EAGAIN
+      ? False(isolate)
+      : True(isolate)
+    );
   }
-
-  args.GetReturnValue().Set(
-    r == -EAGAIN
-    ? False(isolate)
-    : True(isolate)
-  );
 }
 
 

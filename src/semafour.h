@@ -18,9 +18,10 @@ class Semafour : public node::ObjectWrap {
   public:
     static void Init(v8::Local<v8::Object> exports);
     int Post();
-    int Wait(bool nonBlocking);
+    int Wait();
     int Unlink();
     int Close();
+    int TryWait();
 
   private:
     explicit Semafour(const char* name, uint32_t value, bool create, int* err);

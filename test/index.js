@@ -46,6 +46,29 @@ describe('Semafour', () => {
     sem.unlinkSync();
   });
 
+  it('tries obtaining the semaphore asynchronously', () => {
+    const barrier = new Barrier();
+    const sem = Semafour.create({ name: getName() });
+
+    sem.post((err) => {
+      expect(err).to.equal(null);
+      sem.tryWait((err, acquired) => {
+        expect(err).to.equal(null);
+        expect(acquired).to.equal(true);
+        sem.tryWait((err, acquired) => {
+          expect(err).to.equal(null);
+          expect(acquired).to.equal(false);
+          sem.unlink((err) => {
+            expect(err).to.equal(null);
+            barrier.pass();
+          });
+        });
+      });
+    });
+
+    return barrier;
+  });
+
   it('obtains the semaphore asynchronously', () => {
     const barrier = new Barrier();
     const sem = Semafour.create({ name: getName() });
