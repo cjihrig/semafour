@@ -285,11 +285,7 @@ void Semafour::TryWait(const v8::FunctionCallbackInfo<v8::Value>& args) {
   if (r != 0 && r != -EAGAIN) {
     args.GetReturnValue().Set(node::UVException(isolate, r, "sem_trywait"));
   } else {
-    args.GetReturnValue().Set(
-      r == -EAGAIN
-      ? False(isolate)
-      : True(isolate)
-    );
+    args.GetReturnValue().Set(r == -EAGAIN ? False(isolate) : True(isolate));
   }
 }
 
