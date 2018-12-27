@@ -3,6 +3,7 @@
 using v8::Boolean;
 using v8::Context;
 using v8::Exception;
+using v8::False;
 using v8::Function;
 using v8::FunctionCallbackInfo;
 using v8::FunctionTemplate;
@@ -12,10 +13,12 @@ using v8::Number;
 using v8::Object;
 using v8::Persistent;
 using v8::String;
+using v8::True;
 using v8::Uint32;
 using v8::Value;
 
 Persistent<Function> Semafour::constructor;
+
 
 #define THROW(isolate, type, msg)                                             \
   ((isolate)->ThrowException(Exception::type(                                 \
@@ -81,6 +84,21 @@ int Semafour::Wait() {
 
   do {
     r = sem_wait(_sem);
+  } while (r == -1 && errno == EINTR);
+
+  if (r != 0) {
+    return -errno;
+  }
+
+  return 0;
+}
+
+
+int Semafour::TryWait() {
+  int r;
+
+  do {
+    r = sem_trywait(_sem);
   } while (r == -1 && errno == EINTR);
 
   if (r != 0) {
@@ -257,6 +275,21 @@ void Semafour::Close(const v8::FunctionCallbackInfo<v8::Value>& args) {
 }
 
 
+void Semafour::TryWait(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  Semafour* sem = UNWRAP(Semafour);
+  Isolate* isolate = args.GetIsolate();
+  int r;
+
+  r = sem->TryWait();
+
+  if (r != 0 && r != -EAGAIN) {
+    args.GetReturnValue().Set(node::UVException(isolate, r, "sem_trywait"));
+  } else {
+    args.GetReturnValue().Set(r == -EAGAIN ? False(isolate) : True(isolate));
+  }
+}
+
+
 void Semafour::Init(Local<Object> exports) {
   Isolate* isolate = exports->GetIsolate();
 
@@ -269,6 +302,7 @@ void Semafour::Init(Local<Object> exports) {
   NODE_SET_PROTOTYPE_METHOD(tpl, "post", Post);
   NODE_SET_PROTOTYPE_METHOD(tpl, "wait", Wait);
   NODE_SET_PROTOTYPE_METHOD(tpl, "unlink", Unlink);
+  NODE_SET_PROTOTYPE_METHOD(tpl, "tryWait", TryWait);
   NODE_SET_PROTOTYPE_METHOD(tpl, "close", Close);
 
   constructor.Reset(isolate, tpl->GetFunction());

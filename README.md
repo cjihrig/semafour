@@ -97,6 +97,24 @@ Acquires the semaphore asynchronously. The wait operation is performed on a sepa
 
 Acquires the semaphore synchronously. The wait operation is performed on the main thread, and will block the event loop until the semaphore is acquired. Throws if an error occurs.
 
+### `Semafour.prototype.tryWait()`
+
+  - Arguments
+    - `callback(err, acquired)` (function) - Callback function, which takes an error argument, and a boolean that is `true` when the semaphore is acquired, and false otherwise.
+  - Returns
+    - Nothing
+
+Tries to acquire the semaphore asynchronously. The tryWait operation is performed on the main thread. Calls the provided callback with the results of the lock acquisition, and errors, if any.
+
+### `Semafour.prototype.tryWaitSync()`
+
+  - Arguments
+    - None
+  - Returns
+    - A boolean that is true if the semaphore was acquired, and false otherwise.
+
+Tries to acquire the semaphore synchronously. The tryWait operation is performed on the main thread. Throws if an error occurs.
+
 ### `Semafour.prototype.unlink(callback)`
 
   - Arguments

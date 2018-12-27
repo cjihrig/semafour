@@ -21,6 +21,7 @@ class Semafour : public node::ObjectWrap {
     int Wait();
     int Unlink();
     int Close();
+    int TryWait();
 
   private:
     explicit Semafour(const char* name, uint32_t value, bool create, int* err);
@@ -34,6 +35,7 @@ class Semafour : public node::ObjectWrap {
     static void Wait(const v8::FunctionCallbackInfo<v8::Value>& args);
     static void Unlink(const v8::FunctionCallbackInfo<v8::Value>& args);
     static void Close(const v8::FunctionCallbackInfo<v8::Value>& args);
+    static void TryWait(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
 
 

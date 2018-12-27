@@ -24,6 +24,42 @@ function syncMock () {
 
 
 describe('Semafour', () => {
+  it('can try locking semaphores', () => {
+    const sem = Semafour.create({ name: getName(), value: 1 });
+    expect(sem.tryWaitSync()).to.equal(true);
+
+    expect(sem.tryWaitSync()).to.equal(false);
+    sem.postSync();
+    expect(sem.tryWaitSync()).to.equal(true);
+    sem.unlinkSync();
+  });
+
+  it('throws when tryWait() gets passed an argument that is not a callback', () => {
+    const sem = Semafour.create({ name: getName(), value: 1 });
+
+    expect(() => {
+      sem.tryWait();
+    }).to.throw(TypeError, 'callback must be a function');
+  });
+
+  it('tryWait() and tryWaitSync() handle errors from the Javascript layer', () => {
+    const barrier = new Barrier();
+    const sem = Semafour.create({ name: getName() });
+
+    expect(() => {
+      StandIn.replaceOnce(SemafourWrap.prototype, 'tryWait', syncMock);
+      sem.tryWaitSync();
+    }).to.throw(Error, 'mock-error');
+
+    StandIn.replaceOnce(SemafourWrap.prototype, 'tryWait', syncMock);
+    sem.tryWait((err) => {
+      expect(err).to.be.an.error(Error, 'mock-error');
+      barrier.pass();
+    });
+
+    return barrier;
+  });
+
   it('obtains the semaphore synchronously', () => {
     let sem = Semafour.create({ name: getName(), value: 1 });
 
@@ -34,6 +70,29 @@ describe('Semafour', () => {
     sem.postSync();
     sem.waitSync();
     sem.unlinkSync();
+  });
+
+  it('tries obtaining the semaphore asynchronously', () => {
+    const barrier = new Barrier();
+    const sem = Semafour.create({ name: getName() });
+
+    sem.post((err) => {
+      expect(err).to.equal(null);
+      sem.tryWait((err, acquired) => {
+        expect(err).to.equal(null);
+        expect(acquired).to.equal(true);
+        sem.tryWait((err, acquired) => {
+          expect(err).to.equal(null);
+          expect(acquired).to.equal(false);
+          sem.unlink((err) => {
+            expect(err).to.equal(null);
+            barrier.pass();
+          });
+        });
+      });
+    });
+
+    return barrier;
   });
 
   it('obtains the semaphore asynchronously', () => {
