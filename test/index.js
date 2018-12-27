@@ -34,6 +34,32 @@ describe('Semafour', () => {
     sem.unlinkSync();
   });
 
+  it('throws when tryWait() gets passed an argument that is not a callback', () => {
+    const sem = Semafour.create({ name: getName(), value: 1 });
+
+    expect(() => {
+      sem.tryWait();
+    }).to.throw(TypeError, 'callback must be a function');
+  });
+
+  it('tryWait() and tryWaitSync() handle errors from the Javascript layer', () => {
+    const barrier = new Barrier();
+    const sem = Semafour.create({ name: getName() });
+
+    expect(() => {
+      StandIn.replaceOnce(SemafourWrap.prototype, 'tryWait', syncMock);
+      sem.tryWaitSync();
+    }).to.throw(Error, 'mock-error');
+
+    StandIn.replaceOnce(SemafourWrap.prototype, 'tryWait', syncMock);
+    sem.tryWait((err) => {
+      expect(err).to.be.an.error(Error, 'mock-error');
+      barrier.pass();
+    });
+
+    return barrier;
+  });
+
   it('obtains the semaphore synchronously', () => {
     let sem = Semafour.create({ name: getName(), value: 1 });
 
